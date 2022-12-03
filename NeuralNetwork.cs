@@ -29,6 +29,24 @@ namespace tryagain
             learnRate = _learnRate;
         }
 
+        public void SetStartWeightsBias()
+        {
+
+            L[1].N[0].weight[0] = 0.15;
+            L[1].N[0].weight[1] = 0.20;
+
+            L[1].N[1].weight[0] = 0.25;
+            L[1].N[1].weight[1] = 0.30;
+
+            L[2].N[0].weight[0] = 0.4;
+            L[2].N[0].weight[1] = 0.45;
+
+
+            L[1].Bias = 0.35;
+            L[2].Bias = 0.60;
+        }
+
+
         public void SetInputs(List<double> inputs)
         {
             int i = 0;
@@ -39,11 +57,7 @@ namespace tryagain
                 i++;
             }
 
-            //L[0].N[0].output = 0.05;
-            //L[0].N[1].output = 0.10;
 
-            L[1].Bias = 0.35;
-            L[2].Bias = 0.60;
 
             //for (int j = 0; j < numHiddenN; j++)
             //{
@@ -64,38 +78,11 @@ namespace tryagain
 
 
 
-            L[1].N[0].weight[0] = 0.15;
-            L[1].N[0].weight[1] = 0.20;
-
-            L[1].N[1].weight[0] = 0.25;
-            L[1].N[1].weight[1] = 0.30;
-
-            L[2].N[0].weight[0] = 0.4;
-            L[2].N[0].weight[1] = 0.45;
-
-
-
-
-            //L[2].N[1].weight[0] = 0.5;
-            //L[2].N[1].weight[1] = 0.55;
-
-            //L[2].N[0].target = 0.01;
-            //L[2].N[1].target = 0.99;
 
         }
 
-        public void SetTarget(double target)
+        public void SetInputsOrig()
         {
-            L[2].N[0].target = target;
-        }
-
-        public void SetTestInputsOrig()
-        {
-            //for (int i = 0; i < 100; i++)
-            //{
-            //    L[0].N[i].output = i / 10; ;
-            //}
-
             L[0].N[0].output = 0.05;
             L[0].N[1].output = 0.10;
 
@@ -116,7 +103,11 @@ namespace tryagain
 
             L[2].N[0].target = 0.01;
             L[2].N[1].target = 0.99;
+        }
 
+        public void SetTarget(double target)
+        {
+            L[2].N[0].target = target;
         }
 
         public void ProcessNetwork()
@@ -127,6 +118,7 @@ namespace tryagain
                 for (int j = 0; j < L[i].N.Count; j++)
                 {
                     Neuron N = L[i].N[j];
+                    N.output = 0;
 
                     for (int k = 0; k < L[i - 1].N.Count; k++)
                     {
@@ -200,19 +192,44 @@ namespace tryagain
             return 0;
         }
 
-        public void UpdateWeights()
-        {
-            for (int i = 1; i < L.Count; i++)
-            {
-                foreach (Neuron N in L[i].N.Values)
-                {
-                    for (int n = 0; n < L[i - 1].N.Count; n++)
-                    {
-                        N.weight[n] = N.weightNew[n];
-                    }
-                }
-            }
-        }
+        //public void ResetOutputs()
+        //{
+        //    for (int i = 1; i < L.Count; i++)
+        //    {
+        //        foreach (Neuron N in L[i].N.Values)
+        //        {
+        //            //for (int n = 0; n < L[i - 1].N.Count; n++)
+        //            //{
+        //            N.output = 0;
+        //            //}
+        //        }
+        //    }
+        //}
+
+        //public void ResetWeightArrays()
+        //{
+        //    for (int i = 1; i < L.Count; i++)
+        //    {
+        //        foreach (Neuron N in L[i].N.Values)
+        //        {
+        //            N.wtCorr.Clear();
+        //        }
+        //    }
+        //}
+
+        //public void UpdateWeights()
+        //{
+        //    for (int i = 1; i < L.Count; i++)
+        //    {
+        //        foreach (Neuron N in L[i].N.Values)
+        //        {
+        //            for (int n = 0; n < L[i - 1].N.Count; n++)
+        //            {
+        //                N.weight[n] = N.weightNew[n];
+        //            }
+        //        }
+        //    }
+        //}
 
         public void UpdateWeights2()
         {
@@ -225,18 +242,22 @@ namespace tryagain
                         // average all weight corrections
                         double average = 0;
                         foreach (double[] d in N.wtCorr)
-                        {
                             average += d[n];
-                        }
 
                         average /= N.wtCorr.Count;
-
 
                         N.weight[n] = N.weight[n] - learnRate * average; ;
                         //N.weightNew[k] = N.weight[k] - learnRate * dEtot_dw;
                     }
+
+                    N.wtCorr.Clear();
                 }
             }
+
+
+
+
+
         }
 
 

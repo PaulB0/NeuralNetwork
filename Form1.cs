@@ -6,88 +6,128 @@ namespace tryagain
         {
             InitializeComponent();
 
-            int numInputN = 6;
-            int numHiddenN = 1000; // 100;// 6;
-            int numOutputN = 1;
-            double learnRate = 0.5;
-            double Etot = 0;
+            bool useTest1 = false;
+            bool useTest2 = false;
+            bool useTest3 = true;
 
+            NeuralNetwork NN;
+            SQL Sql = new SQL();
 
-            NeuralNetwork NN = new NeuralNetwork(numInputN, numHiddenN, numOutputN, learnRate);
-
-            SQL Sql = new SQL(NN);
-
-            Sql.RunSQLCommand("delete from [dbo].[log]");
-
-
-            DateOnly D = new DateOnly(2017, 2, 1); // start of training
-
-            List<DateOnly> dates = Sql.GetDays(D, D.AddDays(10));
-
-            // NEED TO AVERAGE NEW WEIGHTS ACROSS ALL TRAINING
-            // PLUS TRY SPECCING ALL WEIGHTS - NOT JUST LEAVE AS ZERO
-
-            //for (int j = 0; j < 10; j++)
-            //{
-
-            for (int i = 0; i < dates.Count - 1; i++)
+            if (useTest1)
             {
-                //Etot = 10;
-                //while (Etot > 0.002)
-                //{
-                List<double> inputs = Sql.GetInputs(dates[i]);
-                NN.SetInputs(inputs);
-
-                double target = Sql.GetTarget(dates[i + 1]);
-                NN.SetTarget(target);
-
-                NN.ProcessNetwork();
-                Etot = NN.TargetError();
-
-                NN.BackProp();
-                //NN.UpdateWeights();
-
-                Sql.WriteLog(dates[i], Etot, target, NN.L[2].N[0].output);
+                NN = new NeuralNetwork(2, 2, 2, 0.5);
+                TestRef1(NN, Sql);
             }
 
-            NN.UpdateWeights2();
-
-
-            for (int i = 0; i < dates.Count - 1; i++)
+            if (useTest2)
             {
-                //Etot = 10;
-                //while (Etot > 0.002)
-                //{
-                List<double> inputs = Sql.GetInputs(dates[i]);
-                NN.SetInputs(inputs);
-
-                double target = Sql.GetTarget(dates[i + 1]);
-                NN.SetTarget(target);
-
-                NN.ProcessNetwork();
-                Etot = NN.TargetError();
-
-                NN.BackProp();
-                //NN.UpdateWeights();
-
-                Sql.WriteLog(dates[i], Etot, target, NN.L[2].N[0].output);
+                NN = new NeuralNetwork(2, 2, 1, 0.5);
+                TestRef2(NN, Sql);
             }
 
-
-
-
-
-
-
-
-            //}
-
-            //}
-
-
-            int r = 2;
-
+            if (useTest3)
+            {
+                NN = new NeuralNetwork(2, 2, 1, 0.5);
+                TestRef3(NN, Sql);
+            }
 
         }
+
+
+        private void TestRef1(NeuralNetwork NN, SQL Sql)
+        {
+            double Etot = 0;
+
+            NN.SetInputsOrig();
+
+            // repeat everything enough to reduce error
+            for (int i = 0; i < 10000; i++)
+            {
+                // run through all training data and average the weight corrections
+                for (int j = 0; j < 2; j++)
+                {
+                    NN.ProcessNetwork();
+                    NN.BackProp();
+                }
+
+                NN.UpdateWeights2();
+
+                NN.ProcessNetwork();
+                Etot = NN.TargetError();
+
+                if (i % 1000 == 0)
+                    Sql.WriteLog(new DateOnly(2017, 2, 5), Etot, 0.01, NN.L[2].N[0].output);
+
+            }
+
+        }
+
+        private void TestRef2(NeuralNetwork NN, SQL Sql)
+        {
+            double Etot = 0;
+            DateOnly D = new DateOnly(2017, 2, 5); // start of training
+            List<DateOnly> dates = Sql.GetDays(D, D.AddDays(10));
+
+            NN.SetStartWeightsBias();
+
+            List<double> inputs = Sql.GetInputs(dates[0]);
+            NN.SetInputs(inputs);
+
+            //double target = Sql.GetTarget(dates[i + 1]);
+            double target = Sql.GetTarget(dates[0]); // test with ADM
+            NN.SetTarget(target);
+
+            for (int j = 0; j < 20000; j++)
+            {
+                NN.ProcessNetwork();
+                NN.BackProp();
+                NN.UpdateWeights2();
+
+                Etot = NN.TargetError();
+                if (j % 1000 == 0)
+                    Sql.WriteLog(dates[0], Etot, target, NN.L[2].N[0].output);
+            }
+        }
+
+        private void TestRef3(NeuralNetwork NN, SQL Sql)
+        {
+            double Etot = 0;
+            DateOnly D = new DateOnly(2017, 2, 5); // start of training
+            List<DateOnly> dates = Sql.GetDays(D, D.AddDays(10));
+
+
+            NN.SetStartWeightsBias();
+
+            for (int j = 0; j < 200; j++)
+            {
+                for (int i = 0; i < dates.Count - 1; i++)
+                {
+
+                    List<double> inputs = Sql.GetInputs(dates[i]);
+                    NN.SetInputs(inputs);
+
+                    //double target = Sql.GetTarget(dates[i + 1]);
+                    double target = Sql.GetTarget(dates[i]); // test with ADM
+                    NN.SetTarget(target);
+
+
+
+
+                    NN.ProcessNetwork();
+                    NN.BackProp();
+                }
+                NN.UpdateWeights2();
+
+                NN.ProcessNetwork();
+                Etot = NN.TargetError();
+
+                // if (j % 10 == 0)
+                Sql.WriteLog(dates[0], Etot, 0, NN.L[2].N[0].output);
+
+
+            }
+        }
+
+
     }
 }

@@ -15,11 +15,10 @@ namespace tryagain
 {
     internal class SQL
     {
-        NeuralNetwork NN;
 
-        public SQL(NeuralNetwork _NN)
+        public SQL()
         {
-            NN = _NN;
+            RunSQLCommand("delete from [dbo].[log]");
         }
 
         public List<DateOnly> GetDays(DateOnly from, DateOnly to)
