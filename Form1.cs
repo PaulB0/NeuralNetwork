@@ -92,26 +92,23 @@ namespace tryagain
         private void TestRef3(NeuralNetwork NN, SQL Sql)
         {
             double Etot = 0;
-            DateOnly D = new DateOnly(2017, 2, 5); // start of training
-            List<DateOnly> dates = Sql.GetDays(D, D.AddDays(10));
 
+            DateOnly from = new DateOnly(2017, 2, 5); // start of training
+            DateOnly to = new DateOnly(2017, 2, 20); // start of training
+
+            decimal[,] stockVals = Sql.GetInputArray(from, to);
+
+            int numStocks = stockVals.GetLength(0);
+            int numDates = stockVals.GetLength(1);
 
             NN.SetStartWeightsBias();
 
-            for (int j = 0; j < 200; j++)
+            for (int j = 0; j < 2000; j++)
             {
-                for (int i = 0; i < dates.Count - 1; i++)
+                // percent calc requires start at day 2
+                for (int dateIndex = 1; dateIndex < numDates - 1; dateIndex++)
                 {
-
-                    List<double> inputs = Sql.GetInputs(dates[i]);
-                    NN.SetInputs(inputs);
-
-                    //double target = Sql.GetTarget(dates[i + 1]);
-                    double target = Sql.GetTarget(dates[i]); // test with ADM
-                    NN.SetTarget(target);
-
-
-
+                    NN.SetInputs2(stockVals, dateIndex);
 
                     NN.ProcessNetwork();
                     NN.BackProp();
@@ -121,9 +118,8 @@ namespace tryagain
                 NN.ProcessNetwork();
                 Etot = NN.TargetError();
 
-                // if (j % 10 == 0)
-                Sql.WriteLog(dates[0], Etot, 0, NN.L[2].N[0].output);
-
+                if (j % 10 == 0)
+                    Sql.WriteLog(from, Etot, 0, NN.L[2].N[0].output);
 
             }
         }

@@ -46,7 +46,6 @@ namespace tryagain
             L[2].Bias = 0.60;
         }
 
-
         public void SetInputs(List<double> inputs)
         {
             int i = 0;
@@ -57,27 +56,24 @@ namespace tryagain
                 i++;
             }
 
+        }
 
 
-            //for (int j = 0; j < numHiddenN; j++)
-            //{
-            //    for (int k = 0; k < numInputN; k++)
-            //    {
-            //        L[1].N[j].weight[k] = 0.2;
-            //    }
-            //}
+        public void SetInputs2(decimal[,] stockVals, int dateIndex)
+        {
 
-
-            //for (int j = 0; j < numOutputN; j++)
-            //{
-            //    for (int k = 0; k < numHiddenN; k++)
-            //    {
-            //        L[2].N[j].weight[k] = 0.2;
-            //    }
-            //}
+            // first stock is the target
+            double targetPc = (double)(100 * (stockVals[0, dateIndex + 1] - stockVals[0, dateIndex]) / stockVals[0, dateIndex]);
+            L[2].N[0].target = targetPc;
 
 
 
+            // remaining stocks are training
+            for (int stockIndex = 1; stockIndex < stockVals.GetLength(0); stockIndex++)
+            {
+                double pc = (double)(100 * (stockVals[stockIndex, dateIndex] - stockVals[stockIndex, dateIndex - 1]) / stockVals[stockIndex, dateIndex - 1]);
+                L[0].N[stockIndex - 1].output = pc;
+            }
 
         }
 
@@ -106,6 +102,11 @@ namespace tryagain
         }
 
         public void SetTarget(double target)
+        {
+            L[2].N[0].target = target;
+        }
+
+        public void SetTarget2(double target)
         {
             L[2].N[0].target = target;
         }
@@ -259,7 +260,5 @@ namespace tryagain
 
 
         }
-
-
     }
 }

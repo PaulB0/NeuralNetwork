@@ -59,6 +59,115 @@ namespace tryagain
             return list_dates;
         }
 
+        public Dictionary<DateOnly, int> DistinctDates(DateOnly from, DateOnly to)
+        {
+            Dictionary<DateOnly, int> dict_dates = new Dictionary<DateOnly, int>();
+
+            using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
+            {
+                using (SqlCommand cmd = new SqlCommand("distinct_dates", cnn))
+                {
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cnn.Open();
+
+                    SqlParameter start_date = cmd.Parameters.Add("@start_date", SqlDbType.Date);
+                    start_date.Direction = ParameterDirection.Input;
+                    start_date.Value = from.ToString("yyyy-MM-dd"); // "2017-02-01";
+
+                    SqlParameter end_date = cmd.Parameters.Add("@end_date", SqlDbType.Date);
+                    end_date.Direction = ParameterDirection.Input;
+                    end_date.Value = to.ToString("yyyy-MM-dd"); // "2017-02-01";
+
+                    SqlDataReader dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+                    int i = 0;
+                    while (dr.Read())
+                    {
+                        DateOnly dataDate = DateOnly.FromDateTime(DateTime.Parse(dr["_date"].ToString()));
+                        dict_dates.Add(dataDate, i);
+                        i++;
+                    }
+                    cnn.Close();
+                }
+            }
+            return dict_dates;
+        }
+
+        public Dictionary<string, int> DistinctStocks()
+        {
+            Dictionary<string, int> dict_stocks = new Dictionary<string, int>();
+
+            using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
+            {
+                using (SqlCommand cmd = new SqlCommand("distinct_stocks", cnn))
+                {
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cnn.Open();
+
+                    SqlDataReader dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+                    int i = 0;
+                    while (dr.Read())
+                    {
+                        dict_stocks.Add(dr["stock"].ToString(), i);
+                        i++;
+                    }
+                    cnn.Close();
+                }
+            }
+            return dict_stocks;
+        }
+
+
+        public decimal[,] GetInputArray(DateOnly from, DateOnly to)
+        {
+            Dictionary<string, int> distinctStocks = DistinctStocks();
+            int numStocks = distinctStocks.Count;
+
+            Dictionary<DateOnly, int> distinctDates = DistinctDates(from, to);
+            int numDates = distinctDates.Count;
+
+            decimal[,] stockVals = new decimal[ numStocks,numDates];
+
+            using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
+            {
+                using (SqlCommand cmd = new SqlCommand("get_input_array", cnn))
+                {
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cnn.Open();
+
+                    SqlParameter start_date = cmd.Parameters.Add("@start_date", SqlDbType.Date);
+                    start_date.Direction = ParameterDirection.Input;
+                    start_date.Value = from.ToString("yyyy-MM-dd"); // "2017-02-01";
+
+                    SqlParameter end_date = cmd.Parameters.Add("@end_date", SqlDbType.Date);
+                    end_date.Direction = ParameterDirection.Input;
+                    end_date.Value = to.ToString("yyyy-MM-dd"); // "2017-02-01";
+
+                    SqlDataReader dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+                    while (dr.Read())
+                    {
+                        DateOnly dataDate = DateOnly.FromDateTime(DateTime.Parse(dr["_date"].ToString()));
+                        int dateIndex = distinctDates[dataDate];
+
+                        string stock = dr["_stock"].ToString();
+                        int stockIndex = distinctStocks[stock];
+
+                        decimal val = (decimal)dr["_close"];
+
+                        stockVals[stockIndex, dateIndex] = val;
+                    }
+
+
+                    cnn.Close();
+                }
+            }
+
+            return stockVals;
+        }
+
+
         public List<double> GetInputs(DateOnly D)
         {
             List<double> group = new List<double>();
@@ -173,7 +282,7 @@ namespace tryagain
         }
 
 
-            public void LoadStocks()
+        public void LoadStocks()
         {
             SqlConnection cnn;
             cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2");
