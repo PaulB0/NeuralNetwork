@@ -19,6 +19,7 @@ namespace tryagain
         public SQL()
         {
             RunSQLCommand("delete from [dbo].[log]");
+            RunSQLCommand("delete from [dbo].[weights]");
         }
 
         public List<DateOnly> GetDays(DateOnly from, DateOnly to)
@@ -59,9 +60,10 @@ namespace tryagain
             return list_dates;
         }
 
-        public Dictionary<DateOnly, int> DistinctDates(DateOnly from, DateOnly to)
+        public dynamic DistinctDates(DateOnly from, DateOnly to, bool intkey)
         {
-            Dictionary<DateOnly, int> dict_dates = new Dictionary<DateOnly, int>();
+            Dictionary<DateOnly, int> dict_by_dates = new Dictionary<DateOnly, int>();
+            Dictionary<int, DateOnly> dict_by_count = new Dictionary<int, DateOnly>();
 
             using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
             {
@@ -84,54 +86,165 @@ namespace tryagain
                     while (dr.Read())
                     {
                         DateOnly dataDate = DateOnly.FromDateTime(DateTime.Parse(dr["_date"].ToString()));
-                        dict_dates.Add(dataDate, i);
+                        dict_by_dates.Add(dataDate, i);
+                        dict_by_count.Add(i, dataDate);
                         i++;
                     }
                     cnn.Close();
                 }
             }
-            return dict_dates;
+
+            if (!intkey)
+                return dict_by_dates;
+            else
+                return dict_by_count;
         }
 
-        public Dictionary<string, int> DistinctStocks()
+        //public Dictionary<string, int> AllNames()
+        //{
+        //    Dictionary<string, int> dict_input_name = new Dictionary<string, int>();
+
+        //    using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
+        //    {
+        //        using (SqlCommand cmd = new SqlCommand("all_names", cnn))
+        //        {
+        //            cmd.CommandType = CommandType.StoredProcedure;
+        //            cnn.Open();
+
+        //            SqlDataReader dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+        //            int count = 0;
+
+        //            while (dr.Read())
+        //            {
+        //                dict_input_name.Add(dr["_stock"].ToString(), count);
+        //                count++;
+        //            }
+        //            cnn.Close();
+        //        }
+        //    }
+        //    return dict_input_name;
+        //}
+
+
+        public Dictionary<string, int> InputNames()
         {
-            Dictionary<string, int> dict_stocks = new Dictionary<string, int>();
+            Dictionary<string, int> dict_input_name = new Dictionary<string, int>();
 
             using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
             {
-                using (SqlCommand cmd = new SqlCommand("distinct_stocks", cnn))
+                using (SqlCommand cmd = new SqlCommand("input_names", cnn))
                 {
                     cmd.CommandType = CommandType.StoredProcedure;
                     cnn.Open();
 
                     SqlDataReader dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
 
-                    int i = 0;
+                    int count = 0;
+
                     while (dr.Read())
                     {
-                        dict_stocks.Add(dr["stock"].ToString(), i);
-                        i++;
+                        dict_input_name.Add(dr["_stock"].ToString(), count);
+                        count++;
                     }
                     cnn.Close();
                 }
             }
-            return dict_stocks;
+            return dict_input_name;
         }
 
-
-        public decimal[,] GetInputArray(DateOnly from, DateOnly to)
+        public Dictionary<string, int> TargetNames()
         {
-            Dictionary<string, int> distinctStocks = DistinctStocks();
-            int numStocks = distinctStocks.Count;
-
-            Dictionary<DateOnly, int> distinctDates = DistinctDates(from, to);
-            int numDates = distinctDates.Count;
-
-            decimal[,] stockVals = new decimal[ numStocks,numDates];
+            Dictionary<string, int> dict_target_name = new Dictionary<string, int>();
 
             using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
             {
-                using (SqlCommand cmd = new SqlCommand("get_input_array", cnn))
+                using (SqlCommand cmd = new SqlCommand("target_names", cnn))
+                {
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cnn.Open();
+
+                    SqlDataReader dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+                    int count = 0;
+
+                    while (dr.Read())
+                    {
+                        dict_target_name.Add(dr["_stock"].ToString(), count);
+                        count++;
+                    }
+                    cnn.Close();
+                }
+            }
+            return dict_target_name;
+        }
+
+
+        public void FillDataArrays(DateOnly approxSetStart, DateOnly approxSetEnd, Dictionary<DateOnly, int> testDatesDateKey,
+            Dictionary<string, int> inputNamesDict, Dictionary<string, int> targetNamesDict, decimal[,] dataInputs, decimal[,] dataTargets)
+        {
+
+            using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
+            {
+                using (SqlCommand cmd = new SqlCommand("get_all_stock_vals", cnn))
+                {
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cnn.Open();
+
+                    SqlParameter start_date = cmd.Parameters.Add("@start_date", SqlDbType.Date);
+                    start_date.Direction = ParameterDirection.Input;
+                    start_date.Value = approxSetStart.ToString("yyyy-MM-dd");
+
+                    SqlParameter end_date = cmd.Parameters.Add("@end_date", SqlDbType.Date);
+                    end_date.Direction = ParameterDirection.Input;
+                    end_date.Value = approxSetEnd.ToString("yyyy-MM-dd");
+
+                    SqlDataReader dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+                    while (dr.Read())
+                    {
+                        DateOnly dataDate = DateOnly.FromDateTime(DateTime.Parse(dr["_date"].ToString()));
+                        int dateIndex = testDatesDateKey[dataDate];
+
+                        decimal val = (decimal)dr["_close"];
+                        string stockName = dr["_stock"].ToString();
+
+                        if (inputNamesDict.ContainsKey(stockName))
+                        {
+                            int stockIndex = inputNamesDict[stockName];
+                            dataInputs[stockIndex, dateIndex] = val;
+                        }
+                        if (targetNamesDict.ContainsKey(stockName))
+                        {
+                            int stockIndex = targetNamesDict[stockName];
+                            dataTargets[stockIndex, dateIndex] = val;
+                        }
+                    }
+                    cnn.Close();
+
+                }
+            }
+
+        }
+
+
+        public (decimal[,], decimal[,]) GetInputArray(DateOnly from, DateOnly to)
+        {
+            Dictionary<string, int> dict_Inputs = InputNames();
+            int numStocks = dict_Inputs.Count;
+
+            Dictionary<string, int> dict_Targets = InputNames();
+            int numTargets = dict_Targets.Count;
+
+            Dictionary<DateOnly, int> distinctDates = DistinctDates(from, to, false);
+            int numDates = distinctDates.Count;
+
+            decimal[,] dataInputs = new decimal[numStocks, numDates];
+            decimal[,] dataTargets = new decimal[numTargets, numDates];
+
+            using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
+            {
+                using (SqlCommand cmd = new SqlCommand("get_input_target_vals", cnn))
                 {
                     cmd.CommandType = CommandType.StoredProcedure;
                     cnn.Open();
@@ -151,21 +264,83 @@ namespace tryagain
                         DateOnly dataDate = DateOnly.FromDateTime(DateTime.Parse(dr["_date"].ToString()));
                         int dateIndex = distinctDates[dataDate];
 
-                        string stock = dr["_stock"].ToString();
-                        int stockIndex = distinctStocks[stock];
+                        int targ = (int)dr["_target"];
 
-                        decimal val = (decimal)dr["_close"];
+                        if (targ == 0)
+                        {
+                            string input = dr["_stock"].ToString();
+                            int inputIndex = dict_Inputs[input];
+                            decimal val = (decimal)dr["_close"];
+                            dataInputs[inputIndex, dateIndex] = val;
+                        }
+                        else
+                        {
+                            string target = dr["_stock"].ToString();
+                            int targetIndex = dict_Targets[target];
+                            decimal val = (decimal)dr["_close"];
+                            dataTargets[targetIndex, dateIndex] = val;
+                        }
 
-                        stockVals[stockIndex, dateIndex] = val;
                     }
-
 
                     cnn.Close();
                 }
             }
 
-            return stockVals;
+            return (dataInputs, dataTargets);
         }
+
+        //public SqlDataReader GetInputArray22(DateOnly from, DateOnly to)
+        //{
+        //    //Dictionary<string, int> dict_Inputs = InputTargetNames(0);
+        //    //int numStocks = dict_Inputs.Count;
+
+        //    //Dictionary<DateOnly, int> distinctDates = DistinctDates(from, to, false);
+        //    //int numDates = distinctDates.Count;
+
+        //    //decimal[,] dataInputs = new decimal[numStocks, numDates];
+        //    //decimal[,] dataTargets = new decimal[numTargets, numDates];
+
+        //    using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
+        //    {
+        //        using (SqlCommand cmd = new SqlCommand("get_input_target_vals", cnn))
+        //        {
+        //            cmd.CommandType = CommandType.StoredProcedure;
+        //            cnn.Open();
+
+        //            SqlParameter start_date = cmd.Parameters.Add("@start_date", SqlDbType.Date);
+        //            start_date.Direction = ParameterDirection.Input;
+        //            start_date.Value = from.ToString("yyyy-MM-dd"); // "2017-02-01";
+
+        //            SqlParameter end_date = cmd.Parameters.Add("@end_date", SqlDbType.Date);
+        //            end_date.Direction = ParameterDirection.Input;
+        //            end_date.Value = to.ToString("yyyy-MM-dd"); // "2017-02-01";
+
+        //            SqlDataReader dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+        //            //while (dr.Read())
+        //            //{
+        //            //    DateOnly dataDate = DateOnly.FromDateTime(DateTime.Parse(dr["_date"].ToString()));
+        //            //    int dateIndex = distinctDates[dataDate];
+
+        //            //    int targ = (int)dr["_target"];
+
+        //            //    if (targ == 0)
+        //            //    {
+        //            //        string input = dr["_stock"].ToString();
+        //            //        int inputIndex = dict_Inputs[input];
+        //            //        decimal val = (decimal)dr["_close"];
+        //            //        dataInputs[inputIndex, dateIndex] = val;
+
+        //            //    }
+        //            //}
+
+        //            cnn.Close();
+        //        }
+        //    }
+
+        //    return (dr);
+        //}
 
 
         public List<double> GetInputs(DateOnly D)
@@ -232,7 +407,7 @@ namespace tryagain
             return target;
         }
 
-        public void WriteLog(DateOnly D, double error, double target, double output)
+        public void WriteLog(double error, double target, double output)
         {
 
             using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
@@ -242,9 +417,9 @@ namespace tryagain
                     cmd.CommandType = CommandType.StoredProcedure;
                     cnn.Open();
 
-                    SqlParameter sql_day = cmd.Parameters.Add("@day", SqlDbType.Date);
-                    sql_day.Direction = ParameterDirection.Input;
-                    sql_day.Value = D.ToString("yyyy-MM-dd"); // "2017-02-01";
+                    //SqlParameter sql_day = cmd.Parameters.Add("@day", SqlDbType.Date);
+                    //sql_day.Direction = ParameterDirection.Input;
+                    //sql_day.Value = D.ToString("yyyy-MM-dd"); // "2017-02-01";
 
                     SqlParameter sql_error = cmd.Parameters.Add("@error", SqlDbType.Float);
                     sql_error.Direction = ParameterDirection.Input;
@@ -261,6 +436,61 @@ namespace tryagain
 
 
                     cmd.ExecuteNonQuery();
+
+
+                    cnn.Close();
+                }
+            }
+        }
+
+        public void LogWeights(NeuralNetwork NN)
+        {
+
+            using (SqlConnection cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2"))
+            {
+                using (SqlCommand cmd = new SqlCommand("log_weights", cnn))
+                {
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cnn.Open();
+
+                    SqlParameter sql_level = cmd.Parameters.Add("@level", SqlDbType.Int);
+                    sql_level.Direction = ParameterDirection.Input;
+
+                    SqlParameter sql_node = cmd.Parameters.Add("@node", SqlDbType.Int);
+                    sql_node.Direction = ParameterDirection.Input;
+
+                    SqlParameter sql_node_1 = cmd.Parameters.Add("@node_1", SqlDbType.Int);
+                    sql_node_1.Direction = ParameterDirection.Input;
+
+                    SqlParameter sql_weight = cmd.Parameters.Add("@weight", SqlDbType.Float);
+                    sql_weight.Direction = ParameterDirection.Input;
+
+
+                    for (int nn = 0; nn < NN.L[1].N.Count; nn++)
+                    {
+                        for (int nn_1 = 0; nn_1 < NN.L[0].N.Count; nn_1++)
+                        {
+                            sql_level.Value = 1;
+                            sql_node.Value = nn;
+                            sql_node_1.Value = nn_1;
+                            sql_weight.Value = NN.L[1].N[nn].weight[nn_1];
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    for (int nn = 0; nn < NN.L[2].N.Count; nn++)
+                    {
+                        for (int nn_1 = 0; nn_1 < NN.L[1].N.Count; nn_1++)
+                        {
+                            sql_level.Value = 2;
+                            sql_node.Value = nn;
+                            sql_node_1.Value = nn_1;
+                            sql_weight.Value = NN.L[2].N[nn].weight[nn_1];
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+
+
 
 
                     cnn.Close();
@@ -288,7 +518,7 @@ namespace tryagain
             cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2");
             cnn.Open();
 
-            string sql = "insert into price_history (stock, date, [open], max, min, [close], volume) values (@stock, @date, @open, @max, @min, @close, @volume)";
+            string sql = "insert into history (_stock, _date, [_open], _max, _min, [_close], _volume) values (@stock, @date, @open, @max, @min, @close, @volume)";
             SqlCommand cmd = new SqlCommand(sql, cnn);
 
             cmd.Parameters.Add("@stock", SqlDbType.Char);
@@ -338,6 +568,26 @@ namespace tryagain
 
         }
 
-    }
+        public void LoadFTSE100()
+        {
+            SqlConnection cnn;
+            cnn = new SqlConnection(@"Data Source=127.0.0.1,14333;Initial Catalog=Stocks;User ID=sa;Password=Sysadmin2");
+            cnn.Open();
 
+            string sql = "insert into [group] (_stock, _target) values (@stock,0)";
+            SqlCommand cmd = new SqlCommand(sql, cnn);
+            cmd.Parameters.Add("@stock", SqlDbType.Char);
+
+            string[] lines = System.IO.File.ReadAllLines(@"D:\Home\ftse100.txt");
+            foreach (string line in lines)
+            {
+                cmd.Parameters["@stock"].Value = line;
+                cmd.ExecuteNonQuery();
+            }
+
+            cnn.Close();
+
+        }
+
+    }
 }

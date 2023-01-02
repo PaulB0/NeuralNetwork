@@ -29,6 +29,33 @@ namespace tryagain
             learnRate = _learnRate;
         }
 
+        public void SetStartWeightsBias2()
+        {
+            for (int i = 0; i < L[1].N.Count; i++) // PAUL 100?
+            {
+                for (int j = 0; j < L[0].N.Count; j++)
+                {
+                    L[1].N[i].weight[j] = 0.001;
+                }
+            }
+
+            // PAUL what about L2?
+            for (int i = 0; i < L[2].N.Count; i++) // PAUL 100?
+            {
+                for (int j = 0; j < L[1].N.Count; j++)
+                {
+                    L[2].N[i].weight[j] = 0.001;
+
+                }
+            }
+            //L[2].N[0].weight[0] = 0.5;
+            //L[2].N[0].weight[1] = 0.5;
+
+
+            L[1].Bias = 0;// 0.35;
+            L[2].Bias = 0;// 0.60;
+        }
+
         public void SetStartWeightsBias()
         {
 
@@ -59,23 +86,74 @@ namespace tryagain
         }
 
 
-        public void SetInputs2(decimal[,] stockVals, int dateIndex)
+        public double SetInputsSine(int pdIndex)
         {
 
-            // first stock is the target
-            double targetPc = (double)(100 * (stockVals[0, dateIndex + 1] - stockVals[0, dateIndex]) / stockVals[0, dateIndex]);
-            L[2].N[0].target = targetPc;
+            int degrees = 0;
+            int degreeStep = 2;
 
-
-
-            // remaining stocks are training
-            for (int stockIndex = 1; stockIndex < stockVals.GetLength(0); stockIndex++)
+            int numInputs = 100;
+            for (int inputIndex = 0; inputIndex < numInputs; inputIndex++)
             {
-                double pc = (double)(100 * (stockVals[stockIndex, dateIndex] - stockVals[stockIndex, dateIndex - 1]) / stockVals[stockIndex, dateIndex - 1]);
-                L[0].N[stockIndex - 1].output = pc;
+                degrees = pdIndex + degreeStep * inputIndex;
+        
+                L[0].N[inputIndex].output = sineScale(degrees);
             }
 
+            degrees += degreeStep;
+            return sineScale(degrees);
         }
+
+       
+        private double sineScale(int degrees)
+        {
+            double sinew = Math.Sin(degrees * Math.PI / 180);
+            return 0.5 + 0.9 * (sinew / 2);
+        }
+
+        public void SetInputs2(decimal[,] data, int dateIndex, int pcDeltaDays)
+        {
+
+            int numInputs = data.GetLength(0);
+            for (int inputIndex = 0; inputIndex < numInputs; inputIndex++)
+            {
+                double dateIndexVal = (double)data[inputIndex, dateIndex];
+                double dateIndexBackVal = (double)data[inputIndex, dateIndex - pcDeltaDays];
+
+                double pc = 0;
+
+                if (dateIndexBackVal != 0)
+                    pc = 1 * (dateIndexVal - dateIndexBackVal) / dateIndexBackVal;
+
+                L[0].N[inputIndex].output = pc;
+
+            }
+        }
+
+        public void SetTargetSine(double nextval)
+        {
+            L[2].N[0].target = nextval;            
+        }
+
+        public void SetTarget2(decimal[,] data, int dateIndex)
+        {
+            int numTargets = data.GetLength(0);
+            for (int targetIndex = 0; targetIndex < numTargets; targetIndex++)
+            {
+                double dateIndexVal = (double)data[targetIndex, dateIndex + 1];
+                double dateIndexBackVal = (double)data[targetIndex, dateIndex];
+
+                double pc = 0;
+
+                if (dateIndexBackVal != 0)
+                    pc = 1 * (dateIndexVal - dateIndexBackVal) / dateIndexBackVal;
+
+
+                L[2].N[targetIndex].target = 0.5 + pc;
+            }
+        }
+
+
 
         public void SetInputsOrig()
         {
@@ -97,7 +175,7 @@ namespace tryagain
             L[2].N[1].weight[0] = 0.5;
             L[2].N[1].weight[1] = 0.55;
 
-            L[2].N[0].target = 0.01;
+            L[2].N[0].target = 0.35;// 0.01;
             L[2].N[1].target = 0.99;
         }
 
@@ -131,9 +209,10 @@ namespace tryagain
             }
         }
 
-        public double Sigmoid(double x)
+        public double Sigmoid(double x) 
         {
-            return 1 / (1 + Math.Exp(-x));
+            double sigm = 1 / (1 + Math.Exp(-x));
+            return sigm;
         }
 
         public double TargetError()
@@ -193,44 +272,6 @@ namespace tryagain
             return 0;
         }
 
-        //public void ResetOutputs()
-        //{
-        //    for (int i = 1; i < L.Count; i++)
-        //    {
-        //        foreach (Neuron N in L[i].N.Values)
-        //        {
-        //            //for (int n = 0; n < L[i - 1].N.Count; n++)
-        //            //{
-        //            N.output = 0;
-        //            //}
-        //        }
-        //    }
-        //}
-
-        //public void ResetWeightArrays()
-        //{
-        //    for (int i = 1; i < L.Count; i++)
-        //    {
-        //        foreach (Neuron N in L[i].N.Values)
-        //        {
-        //            N.wtCorr.Clear();
-        //        }
-        //    }
-        //}
-
-        //public void UpdateWeights()
-        //{
-        //    for (int i = 1; i < L.Count; i++)
-        //    {
-        //        foreach (Neuron N in L[i].N.Values)
-        //        {
-        //            for (int n = 0; n < L[i - 1].N.Count; n++)
-        //            {
-        //                N.weight[n] = N.weightNew[n];
-        //            }
-        //        }
-        //    }
-        //}
 
         public void UpdateWeights2()
         {
